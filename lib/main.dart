@@ -1,6 +1,5 @@
 import 'dart:io';
-
-import 'package:epubx/epubx.dart';
+import 'package:epub_reader/reader.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
@@ -77,7 +76,13 @@ class _MyHomePageState extends State<MyHomePage> {
 
       final bytes = file.bytes ?? await File(file.path!).readAsBytes();
 
-      EpubBook epubBook = await EpubReader.readBook(bytes);
+      if (!mounted) return;
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => Reader(bytes: bytes),
+        ),
+      );
     } else {
       // User canceled the picker
     }
