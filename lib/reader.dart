@@ -27,7 +27,7 @@ class Cfi {
 class BookIndex {
   final Map<String, List<Cfi>> index = {};
 
-  static final RegExp _wordRegex = RegExp(r"[A-Za-z0-9']+");
+  static final RegExp _wordRegex = RegExp(r"[A-Za-z0-9'’]+");
   static const int _maxOccurrencesPerWord = 200;
 
   /// Build the in-memory search index from an EPUB book.
@@ -110,6 +110,11 @@ class BookIndex {
           match.start,
         ),
       );
+
+      // build a string representation of each CFI
+      final pathString = elementPath.map((e) => '/$e').join();
+      final cfiString = '/$chapterIndex!$pathString/1:${match.start}';
+      debugPrint('Indexed word "$word" -> CFI: $cfiString');
     }
   }
 
