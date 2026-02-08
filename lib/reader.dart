@@ -74,7 +74,11 @@ class BookIndex {
         _walkElementTree(
           currentElement: child,
           chapterIndex: chapterIndex,
-          currentPath: [...currentPath, elementPosition * 2],
+          currentPath: [...currentPath, elementPosition * 2 + 2],
+          // follow CFI spec for element positions. See:
+          // https://idpf.org/epub/linking/cfi/#sec-path-child-ref
+          // "Child [XML] elements are assigned even indices
+          // (i.e., starting at 2, followed by 4, etc.). "
         );
         elementPosition++;
       } else if (child is XmlText) {
