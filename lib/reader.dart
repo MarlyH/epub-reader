@@ -3,19 +3,56 @@ import 'package:epub_reader/parseEpub.dart';
 import 'package:epubx/epubx.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_html/flutter_html.dart';
-import 'package:flutter/widgets.dart' as flutter;
 
-class Reader extends StatelessWidget {
+class Cfi {
+  final int spineIndex;
+  final List<int> path; // DOM path inside the XHTML
+  final int charOffset; // offset inside text node
+
+  Cfi(this.spineIndex, this.path, this.charOffset);
+}
+
+class BookIndex {
+  final Map<String, List<Cfi>> index = {};
+
+  Future<void> build(EpubBook book) async {
+    index.clear();
+
+
+  }
+}
+
+class Reader extends StatefulWidget {
   final Uint8List bytes;
 
   const Reader({super.key, required this.bytes});
+
+  @override
+  State<Reader> createState() => _ReaderState();
+}
+
+class _ReaderState extends State<Reader> {
+  final BookIndex bookIndex = BookIndex();
+  late Future<EpubBook> _bookFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _bookFuture = _loadAndIndex();
+  }
+
+  Future<EpubBook> _loadAndIndex() async {
+    final book = await parseEpub(widget.bytes);
+    await bookIndex.build(book);
+    return book;
+  }
 
   @override
   Widget build(BuildContext context) {
     // load and parse the epub file in the background,
     // show a loading indicator while waiting. This is useful for large files.
     return FutureBuilder<EpubBook>(
-      future: parseEpub(bytes),
+      future: _bookFuture,
       builder: (context, snapshot) {
         // loading indicator
         if (snapshot.connectionState == ConnectionState.waiting) {
