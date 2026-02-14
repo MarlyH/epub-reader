@@ -128,6 +128,7 @@ class Reader extends StatefulWidget {
 class _ReaderState extends State<Reader> {
   final BookIndex bookIndex = BookIndex();
   late Future<EpubBook> _bookFuture;
+  final TextEditingController _searchController = TextEditingController();
 
   @override
   void initState() {
@@ -176,7 +177,34 @@ class _ReaderState extends State<Reader> {
         final chapters = bookIndex._getAllChaptersFlattened(book);
 
         return Scaffold(
-          appBar: AppBar(title: Text(book.Title ?? 'Unknown Title')),
+          appBar: AppBar(
+            title: Text(book.Title ?? 'Unknown Title'),
+            actions: [
+              SizedBox(
+                width: 200,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: TextField(
+                    controller: _searchController,
+                    decoration: const InputDecoration(
+                      hintText: 'Search...',
+                      contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8)
+                    ),
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.only(right: 48),
+                child: IconButton(
+                  icon: const Icon(Icons.search),
+                  onPressed: () {
+                    final word = _searchController.text;
+                    // TODO
+                  },
+                ),
+              ),
+            ],
+          ),
           body: SingleChildScrollView(
             padding: const EdgeInsets.all(16),
             child: Html(
