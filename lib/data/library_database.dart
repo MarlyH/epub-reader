@@ -3,8 +3,9 @@ import 'package:path/path.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+import '../constants.dart';
 
-class IndexDatabase {
+class LibraryDatabase {
   Database? _database;
 
   Future<Database> _getInstance() async {
@@ -21,8 +22,21 @@ class IndexDatabase {
       databaseFactory = databaseFactoryFfi;
     }
 
-    final dir = await getApplicationDocumentsDirectory();
-    final dbPath = join(dir.path, 'search_index.db');
+    // Create the db and the app directory if it doesn't exist
+    final documentsDir = await getApplicationDocumentsDirectory();
+    late Directory appDir;
+
+    // Currently, on Windows we lazily create an app folder in Documents.
+    // Later, we may move this to AppData and customise folder locations for each platform.
+    if (Platform.isWindows) {
+      appDir = Directory(join(documentsDir.path, appName));
+      if (!await appDir.exists()) {
+        await appDir.create();
+      }
+    } else {
+      appDir = documentsDir;
+    }
+    final dbPath = join(appDir.path, 'library.db');
 
     return openDatabase(
       dbPath,

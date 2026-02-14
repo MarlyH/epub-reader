@@ -5,8 +5,7 @@ import 'package:epubx/epubx.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_html/flutter_html.dart';
 import 'package:xml/xml.dart';
-
-import 'data/index_database.dart';
+import 'data/library_database.dart';
 
 // this is a temporary class for our in-memory index.
 // In reality, this needs to be to and from an actual CFI string for
@@ -151,7 +150,7 @@ class Reader extends StatefulWidget {
 }
 
 class _ReaderState extends State<Reader> {
-  final IndexDatabase db = IndexDatabase();
+  final LibraryDatabase db = LibraryDatabase();
   final BookIndex bookIndex = BookIndex();
   late Future<EpubBook> _bookFuture;
 
