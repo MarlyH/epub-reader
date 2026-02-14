@@ -1,9 +1,12 @@
 import 'dart:typed_data';
+import 'package:crypto/crypto.dart';
 import 'package:epub_reader/parseEpub.dart';
 import 'package:epubx/epubx.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_html/flutter_html.dart';
 import 'package:xml/xml.dart';
+
+import 'data/index_database.dart';
 
 // this is a temporary class for our in-memory index.
 // In reality, this needs to be to and from an actual CFI string for
@@ -148,6 +151,7 @@ class Reader extends StatefulWidget {
 }
 
 class _ReaderState extends State<Reader> {
+  final IndexDatabase db = IndexDatabase();
   final BookIndex bookIndex = BookIndex();
   late Future<EpubBook> _bookFuture;
 
@@ -158,8 +162,17 @@ class _ReaderState extends State<Reader> {
   }
 
   Future<EpubBook> _loadAndIndex() async {
-    final book = await parseEpub(widget.bytes);
-    await bookIndex.build(book);
+    EpubBook book = await parseEpub(widget.bytes);
+
+    final id = sha256.convert(widget.bytes).toString();
+    bool inserted = await db.insertBook(id, book.Title ?? 'Unknown Title');
+
+    // build the index after inserting a new book
+    if (inserted) {
+      debugPrint('New book added: ${book.Title}, building index...');
+      await bookIndex.build(book);
+    }
+
     return book;
   }
 

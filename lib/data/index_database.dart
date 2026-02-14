@@ -7,7 +7,7 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 class IndexDatabase {
   Database? _database;
 
-  Future<Database> getInstance() async {
+  Future<Database> _getInstance() async {
     if (_database != null) return _database!;
     _database = await _init();
     return _database!;
@@ -31,13 +31,34 @@ class IndexDatabase {
     );
   }
 
+  Future<bool> insertBook(String id, String title) async {
+    final db = await _getInstance();
+    try {
+      await db.insert(
+        'books',
+        {
+          'id': id,
+          'title': title
+        },
+        conflictAlgorithm: ConflictAlgorithm.abort, // fail if already exists
+      );
+      return true;
+    } on DatabaseException catch (e) {
+      if (e.isUniqueConstraintError()) {
+        // book already exists...
+        return false;
+      }
+      rethrow;
+    }
+  }
+
   // db and version are provided by the openDatabase function when it calls onCreate
   Future<void> _createDatabase(Database db, int version) async {
     // id is a SHA-256 hash of EPUB file
     await db.execute('''
       CREATE TABLE books (
         id TEXT PRIMARY KEY, 
-        title TEXT,
+        title TEXT
       );
     ''');
 
