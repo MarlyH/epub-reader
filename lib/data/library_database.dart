@@ -1,4 +1,7 @@
 import 'dart:io';
+import 'dart:typed_data';
+import 'package:crypto/crypto.dart';
+import 'package:epubx/epubx.dart';
 import 'package:path/path.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart';
@@ -45,14 +48,17 @@ class LibraryDatabase {
     );
   }
 
-  Future<bool> insertBook(String id, String title) async {
+  Future<bool> insertBook(String id, String title, String path) async {
     final db = await _getInstance();
+
+
     try {
       await db.insert(
         'books',
         {
           'id': id,
-          'title': title
+          'title': title,
+          'path': path
         },
         conflictAlgorithm: ConflictAlgorithm.abort, // fail if already exists
       );
@@ -72,7 +78,8 @@ class LibraryDatabase {
     await db.execute('''
       CREATE TABLE books (
         id TEXT PRIMARY KEY, 
-        title TEXT
+        title TEXT,
+        path TEXT NOT NULL
       );
     ''');
 

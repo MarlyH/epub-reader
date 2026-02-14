@@ -75,13 +75,11 @@ class _MyHomePageState extends State<MyHomePage> {
       print('extension: ${file.extension}');
       print('path: ${file.path}');
 
-      final bytes = file.bytes ?? await File(file.path!).readAsBytes();
-
       if (!mounted) return;
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (_) => Reader(bytes: bytes),
+          builder: (_) => Reader(epubFile: file),
         ),
       );
     } else {

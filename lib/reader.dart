@@ -1,7 +1,9 @@
+import 'dart:io';
 import 'dart:typed_data';
 import 'package:crypto/crypto.dart';
 import 'package:epub_reader/parseEpub.dart';
 import 'package:epubx/epubx.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_html/flutter_html.dart';
 import 'package:xml/xml.dart';
@@ -141,9 +143,9 @@ class BookIndex {
 }
 
 class Reader extends StatefulWidget {
-  final Uint8List bytes;
+  final PlatformFile epubFile;
 
-  const Reader({super.key, required this.bytes});
+  const Reader({super.key, required this.epubFile});
 
   @override
   State<Reader> createState() => _ReaderState();
@@ -161,10 +163,15 @@ class _ReaderState extends State<Reader> {
   }
 
   Future<EpubBook> _loadAndIndex() async {
-    EpubBook book = await parseEpub(widget.bytes);
+    final bytes = widget.epubFile.bytes
+        ?? await File(widget.epubFile.path!).readAsBytes();
+    EpubBook book = await parseEpub(bytes);
 
-    final id = sha256.convert(widget.bytes).toString();
-    bool inserted = await db.insertBook(id, book.Title ?? 'Unknown Title');
+    bool inserted = await db.insertBook(
+      sha256.convert(bytes).toString(),
+      book.Title ?? 'Unknown Title',
+      widget.epubFile.path!,
+    );
 
     // build the index after inserting a new book
     if (inserted) {
