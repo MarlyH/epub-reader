@@ -165,13 +165,10 @@ class _ReaderState extends State<Reader> {
   Future<EpubBook> _loadAndIndex() async {
     final bytes = widget.epubFile.bytes
         ?? await File(widget.epubFile.path!).readAsBytes();
+    final id = sha256.convert(bytes).toString();
     EpubBook book = await parseEpub(bytes);
 
-    bool inserted = await db.insertBook(
-      sha256.convert(bytes).toString(),
-      book.Title ?? 'Unknown Title',
-      widget.epubFile.path!,
-    );
+    bool inserted = await db.insertBook(id, book.Title, widget.epubFile.path!);
 
     // build the index after inserting a new book
     if (inserted) {

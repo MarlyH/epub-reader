@@ -48,7 +48,7 @@ class LibraryDatabase {
     );
   }
 
-  Future<bool> insertBook(String id, String title, String path) async {
+  Future<bool> insertBook(String id, String? title, String path) async {
     final db = await _getInstance();
 
 
@@ -57,7 +57,7 @@ class LibraryDatabase {
         'books',
         {
           'id': id,
-          'title': title,
+          'title': title ?? 'Unknown Title',
           'path': path
         },
         conflictAlgorithm: ConflictAlgorithm.abort, // fail if already exists
