@@ -1,7 +1,4 @@
 import 'dart:io';
-import 'dart:typed_data';
-import 'package:crypto/crypto.dart';
-import 'package:epubx/epubx.dart';
 import 'package:path/path.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart';
@@ -51,7 +48,6 @@ class LibraryDatabase {
   Future<bool> insertBook(String id, String? title, String path) async {
     final db = await _getInstance();
 
-
     try {
       await db.insert(
         'books',
@@ -71,6 +67,44 @@ class LibraryDatabase {
       rethrow;
     }
   }
+
+  Future<void> insertWordOccurrencesBatch(
+      String bookId,
+      Map<String, List<String>> wordCfiMap
+      ) async {
+    final db = await _getInstance();
+
+    final batch = db.batch();
+
+    for (final entry in wordCfiMap.entries) {
+      final word = entry.key;
+      final cfis = entry.value;
+
+      // Insert the word, each unique word will only be inserted once
+      batch.insert(
+        'words',
+        {
+          'book_id': bookId,
+          'word': word,
+        },
+        conflictAlgorithm: ConflictAlgorithm.ignore,
+      );
+
+      // For occurrences, we’ll use a raw insert after resolving word_id
+      // Since batch.insert does not return the inserted ID, we handle this via raw SQL
+      for (final cfi in cfis) {
+        batch.rawInsert('''
+        INSERT INTO occurrences(word_id, cfi)
+        SELECT id, ?
+        FROM words
+        WHERE book_id = ? AND word = ?
+      ''', [cfi, bookId, word]);
+      }
+    }
+
+    await batch.commit(noResult: true);
+  }
+
 
   // db and version are provided by the openDatabase function when it calls onCreate
   Future<void> _createDatabase(Database db, int version) async {

@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:typed_data';
 import 'package:crypto/crypto.dart';
 import 'package:epub_reader/parseEpub.dart';
 import 'package:epubx/epubx.dart';
@@ -9,34 +8,15 @@ import 'package:flutter_html/flutter_html.dart';
 import 'package:xml/xml.dart';
 import 'data/library_database.dart';
 
-// this is a temporary class for our in-memory index.
-// In reality, this needs to be to and from an actual CFI string for
-// persistent storage in a db or whatever.
-class Cfi {
-  // chapter index in book e.g. 0 for first chapter
-  final int spineIndex;
-
-  // DOM path inside the XHTML e.g. [0, 2, 4] means:
-  // root -> first child (0) -> third child (2) -> fifth child (4)
-  final List<int> path;
-
-  // defines starting character for the selected word in selected node
-  // e.g. if the text node is "Hello world" and the word is "world",
-  // the charOffset would be 6
-  final int charOffset;
-
-  Cfi(this.spineIndex, this.path, this.charOffset);
-}
+late final String bookId;
+final LibraryDatabase db = LibraryDatabase();
 
 class BookIndex {
-  final Map<String, List<Cfi>> index = {};
+  final Map<String, List<String>> wordCfiMap = {};
 
   static final RegExp _wordRegex = RegExp(r"[A-Za-z0-9'’]+");
-  static const int _maxOccurrencesPerWord = 200;
 
-  /// Build the in-memory search index from an EPUB book.
   Future<void> build(EpubBook book) async {
-    index.clear();
 
     final allChapters = _getAllChaptersFlattened(book);
 
@@ -58,7 +38,8 @@ class BookIndex {
       }
     }
 
-    debugPrint('Index built: ${index.length} unique words');
+    db.insertWordOccurrencesBatch(bookId, wordCfiMap);
+    debugPrint('Index built: ${wordCfiMap.length} unique words');
   }
 
   /// Recursively walk the XML element tree until we find a text node we can index.
@@ -96,29 +77,22 @@ class BookIndex {
   }
 
   /// Splits a text node into words and stores CFIs in the index.
-  void _indexTextNode({
+  Future<void> _indexTextNode({
     required String textContent,
     required int chapterIndex,
     required List<int> elementPath,
-  }) {
+  }) async {
     for (final match in _wordRegex.allMatches(textContent)) {
       final word = match.group(0)!.toLowerCase();
-
-      final postingsList = index.putIfAbsent(word, () => []);
-      if (postingsList.length >= _maxOccurrencesPerWord) continue;
-
-      postingsList.add(
-        Cfi(
-          chapterIndex,
-          List<int>.from(elementPath),
-          match.start,
-        ),
-      );
 
       // build a string representation of each CFI
       final pathString = elementPath.map((e) => '/$e').join();
       final cfiString = '/$chapterIndex!$pathString/1:${match.start}';
       debugPrint('Indexed word "$word" -> CFI: $cfiString');
+
+      // store the CFI string in the map for this word
+      final cfiList = wordCfiMap.putIfAbsent(word, () => []);
+      cfiList.add(cfiString);
     }
   }
 
@@ -152,7 +126,6 @@ class Reader extends StatefulWidget {
 }
 
 class _ReaderState extends State<Reader> {
-  final LibraryDatabase db = LibraryDatabase();
   final BookIndex bookIndex = BookIndex();
   late Future<EpubBook> _bookFuture;
 
@@ -163,12 +136,12 @@ class _ReaderState extends State<Reader> {
   }
 
   Future<EpubBook> _loadAndIndex() async {
-    final bytes = widget.epubFile.bytes
-        ?? await File(widget.epubFile.path!).readAsBytes();
-    final id = sha256.convert(bytes).toString();
+    final path = widget.epubFile.path!;
+    final bytes = widget.epubFile.bytes ?? await File(path).readAsBytes();
+    bookId = sha256.convert(bytes).toString();
     EpubBook book = await parseEpub(bytes);
 
-    bool inserted = await db.insertBook(id, book.Title, widget.epubFile.path!);
+    bool inserted = await db.insertBook(bookId, book.Title, path);
 
     // build the index after inserting a new book
     if (inserted) {
