@@ -4,12 +4,44 @@ import 'package:epub_reader/parseEpub.dart';
 import 'package:epubx/epubx.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_html/flutter_html.dart';
 import 'package:xml/xml.dart';
 import 'data/library_database.dart';
+import 'package:webview_windows/webview_windows.dart';
 
 late final String bookId;
 final LibraryDatabase db = LibraryDatabase();
+int _currentChapterIndex = 0;
+
+String _wrapHtml(String body) {
+  return """
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+  body {
+    padding: 24px;
+    font-family: serif;
+    font-size: 18px;
+    line-height: 1.6;
+  }
+
+  img {
+    max-width: 100%;
+  }
+
+  .highlight {
+    background: yellow;
+  }
+</style>
+</head>
+<body>
+$body
+</body>
+</html>
+""";
+}
 
 class BookIndex {
   final Map<String, List<String>> wordCfiMap = {};
@@ -125,15 +157,24 @@ class Reader extends StatefulWidget {
   State<Reader> createState() => _ReaderState();
 }
 
+
 class _ReaderState extends State<Reader> {
   final BookIndex bookIndex = BookIndex();
   late Future<EpubBook> _bookFuture;
   final TextEditingController _searchController = TextEditingController();
+  final _controllerWin = WebviewController();
+
+  Future<void> _initWebView() async {
+    await _controllerWin.initialize();
+    await _controllerWin.setBackgroundColor(Colors.transparent);
+    setState(() {});
+  }
 
   @override
   void initState() {
     super.initState();
     _bookFuture = _loadAndIndex();
+    _initWebView();
   }
 
   Future<EpubBook> _loadAndIndex() async {
@@ -155,12 +196,10 @@ class _ReaderState extends State<Reader> {
 
   @override
   Widget build(BuildContext context) {
-    // load and parse the epub file in the background,
-    // show a loading indicator while waiting. This is useful for large files.
     return FutureBuilder<EpubBook>(
       future: _bookFuture,
       builder: (context, snapshot) {
-        // loading indicator
+        // Loading indicator
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Scaffold(
             body: Center(child: CircularProgressIndicator()),
@@ -176,6 +215,12 @@ class _ReaderState extends State<Reader> {
         final book = snapshot.data!;
         final chapters = bookIndex._getAllChaptersFlattened(book);
 
+        // Load current chapter if WebView is ready and content not loaded yet
+        if (_controllerWin.value.isInitialized) {
+          final chapterHtml = chapters[_currentChapterIndex].HtmlContent ?? "";
+          _controllerWin.loadStringContent(_wrapHtml(chapterHtml));
+        }
+
         return Scaffold(
           appBar: AppBar(
             title: Text(book.Title ?? 'Unknown Title'),
@@ -188,7 +233,8 @@ class _ReaderState extends State<Reader> {
                     controller: _searchController,
                     decoration: const InputDecoration(
                       hintText: 'Search...',
-                      contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8)
+                      contentPadding:
+                      EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                     ),
                   ),
                 ),
@@ -199,23 +245,64 @@ class _ReaderState extends State<Reader> {
                   icon: const Icon(Icons.search),
                   onPressed: () {
                     final word = _searchController.text;
-                    // TODO
+                    // TODO: trigger search + highlight
                   },
                 ),
               ),
             ],
           ),
-          body: SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
-            child: Html(
-              data: buildFullHtml(chapters),
-            ),
+          body: Column(
+            children: [
+              Expanded(
+                child: _controllerWin.value.isInitialized
+                    ? Webview(_controllerWin)
+                    : const Center(child: CircularProgressIndicator()),
+              ),
+              // Chapter navigation controls
+              if (chapters.length > 1)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.arrow_back),
+                        onPressed: _currentChapterIndex > 0
+                            ? () {
+                          setState(() => _currentChapterIndex--);
+                          _loadChapter(_currentChapterIndex, chapters);
+                        } : null,
+                      ),
+                      Text(
+                        'Chapter ${_currentChapterIndex + 1} / ${chapters.length}',
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.arrow_forward),
+                        onPressed: _currentChapterIndex < chapters.length - 1
+                            ? () {
+                          setState(() => _currentChapterIndex++);
+                          _loadChapter(_currentChapterIndex, chapters);
+                        } : null,
+                      ),
+                    ],
+                  ),
+                ),
+            ],
           ),
         );
-
       },
     );
   }
+
+  /// Helper to load a chapter by index
+  Future<void> _loadChapter(int index, List<EpubChapter> chapters) async {
+    if (!_controllerWin.value.isInitialized) return;
+    if (index < 0 || index >= chapters.length) return;
+
+    final chapterHtml = chapters[index].HtmlContent ?? '';
+    await _controllerWin.loadStringContent(_wrapHtml(chapterHtml));
+  }
+
 
   // temporary solution to build entire HTML content from all chapters
   String buildFullHtml(List<EpubChapter> chapters) {

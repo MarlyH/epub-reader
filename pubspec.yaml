@@ -43,6 +43,8 @@ dependencies:
   path_provider: ^2.1.5
   crypto: ^3.0.7
   xml: ^6.6.1
+  webview_flutter: ^4.13.1
+  webview_windows: ^0.4.0
 
 dev_dependencies:
   flutter_test:
